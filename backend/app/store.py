@@ -8,6 +8,9 @@ from typing import Any
 
 from app.seed import SEED_ROWS
 
+# 位移复核主线的内部支撑表（点/道路/更正在对照看板内消费，不单独作为看板模块）。
+HIDDEN_FROM_OVERVIEW = {"displacement_point", "displacement_road", "displacement_correction"}
+
 
 class Store:
     def __init__(self) -> None:
@@ -30,6 +33,8 @@ class Store:
     def overview(self) -> dict[str, object]:
         modules: list[dict[str, object]] = []
         for name in self.module_names():
+            if name in HIDDEN_FROM_OVERVIEW:
+                continue
             rows = self.rows(name)
             modules.append({
                 "name": name,

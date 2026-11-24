@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+import DisplacementBoard from '@/views/DisplacementBoard.vue'
 import Overview from '@/views/Overview.vue'
 import WorkbenchView from '@/views/WorkbenchView.vue'
 
@@ -7,6 +8,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', name: 'overview', component: Overview },
+    { path: '/displacement', name: 'displacement', component: DisplacementBoard },
     { path: '/:moduleKey', name: 'module', component: WorkbenchView, props: true },
   ],
 })

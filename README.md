@@ -64,10 +64,28 @@ npm run dev
 | 路径还原 | `route_restore` | 还原路段 | 路段编号、分段编号、路段序列 |
 | 密度估算 | `density_estimate` | 密度网格 | 估算编号、网格编号、带宽参数 |
 | 轨迹质量 | `geo_quality` | 质量报告 | 报告编号、批次编号、漂移点数 |
+| 位移异常复核 | `displacement_review` | 复核任务 | 任务编号、批次编号、点位编号、道路侧别、采用质量报告、转换规则 |
 | 点位归并 | `dedup_merge` | 归并批次 | 归并编号、批次编号、去重键列 |
 | 分析快照 | `geo_snapshot` | 版本快照 | 快照编号、分析口径、网格层级 |
 | 历史回补 | `geo_backfill` | 回补任务 | 回补编号、目标数据集、起始日期 |
 | 结果导出 | `geo_export` | 导出任务 | 导出编号、快照编号、导出格式 |
+
+## 位移异常复核与正式标准化主线
+
+围绕「位移异常 → 原坐标/标准坐标对照 → 质量报告与转换规则绑定 → 出批 → 下游侧别核对」的完整链路：
+
+- **对照看板**：前端「位移异常对照」页（`/displacement`）与 `GET /api/displacement/board/{批次}`
+  并列展示位移异常前后的原坐标（原签发依据）与标准坐标，逐点列出点位、采用的质量报告、转换规则与道路侧别。
+- **复核冻结**：质量分析 `POST /api/quality/recheck/open` 打开复核时固化值班员原已确认值；
+  复核未保存期间到达的更正（`POST /api/displacement/corrections`，须独立确认）只挂起为「待并入」，
+  不改写当前复核基准，保存后自动进入下一次待复核范围（`GET /api/displacement/next-scope/{批次}`）。
+- **正式标准化**：`POST /api/coord/standardize` 必须绑定唯一一份已采用质量报告与一条已生效规则，
+  输出记录携带 `quality_report` 与 `rule_code/rule_version`；同一批次采用第二份报告会被拒绝，
+  单次正式标准化不可混用两份报告，已出批产物默认禁止重写。
+- **试算与复算**：`POST /api/coord/trial` 用另一套生效规则试算（不触碰正式产物）；
+  `POST /api/coord/recompute` 始终从原始坐标与历史采用的点、规则复算，后来的现场判定不参与复算。
+- **出批核对**：`POST /api/coord/issue` 固化出批依据并逐点判定道路内侧/外侧；
+  `POST /api/coord/verify-downstream` 核对送到下游的坐标侧别，并返回下一次待复核范围。
 
 ## 约定
 

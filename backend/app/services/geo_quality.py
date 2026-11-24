@@ -134,3 +134,42 @@ class GeoQualityService(BaseModuleService):
         file_path = self._data_dir("quality_reports") / f"{batch_key}_quality.jsonl"
         reports = self._read_jsonl(file_path)
         return reports[0] if reports else {}
+
+    def adopt_report(self, report_id: int) -> dict[str, Any]:
+        """确认采用某份质量报告。
+
+        一次正式标准化只允许绑定同一份已采用报告；同批次重复采用同一报告保持幂等，
+        已存在不同的已采用报告时拒绝混用。
+        """
+        report = store.find(self.MODULE, report_id)
+        if report is None:
+            raise ValueError(f"质量报告 {report_id} 不存在")
+        if report.get("status") not in ("已出报告",):
+            raise ValueError(f"质量报告 {report_id} 尚未出具报告，不能采用")
+        batch_key = str(report.get("批次编号"))
+        for other in store.rows(self.MODULE):
+            if (other.get("id") != report_id
+                    and str(other.get("批次编号")) == batch_key
+                    and other.get("采用状态") == "已采用"):
+                raise ValueError(
+                    f"批次 {batch_key} 已采用报告 {other.get('报告编号')}，"
+                    "单次正式标准化不可混用两份报告"
+                )
+        report["采用状态"] = "已采用"
+        report["采用时间"] = time.time()
+        return report
+
+    def open_recheck(self, batch_key: str, point_codes: list[str] | None = None) -> dict[str, Any]:
+        """质量分析打开复核：使用原已确认值，由位移复核服务冻结基准并隔离后到更正。"""
+        report_code = self._adopted_report_code(batch_key)
+        if not report_code:
+            raise ValueError(f"批次 {batch_key} 没有已采用的质量报告，无法打开复核")
+        displacement_svc = self._safe_import(
+            "app.services.displacement_review", "DisplacementReviewService")()
+        return displacement_svc.open_review(batch_key, point_codes)
+
+    def _adopted_report_code(self, batch_key: str) -> str | None:
+        for row in store.rows(self.MODULE):
+            if str(row.get("批次编号")) == batch_key and row.get("采用状态") == "已采用":
+                return str(row.get("报告编号"))
+        return None
